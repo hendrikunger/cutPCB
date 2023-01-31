@@ -1,0 +1,21 @@
+version, 2
+machine model, ST4
+curdata, ..\205047_helles Entek
+piece mode, False
+flag 3k point, False
+pix per unit, 80
+high speed mode, False
+board width, 190.1
+board height, 210.7
+overlapA, 243
+overlapB, 188
+adjustA, Right
+adjustB, Left
+surfaceA, BOSCH neu
+surfaceB, BOSCH neu
+widthMax, 20000
+twin mode, False
+twin direction, None
+twin space, 0
+twin position, 0
+KT mode, False

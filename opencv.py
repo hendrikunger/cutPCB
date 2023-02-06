@@ -6,8 +6,8 @@ from matplotlib import pyplot as plt
 import pandas as pd
 
 #imagename = "NG22_22"
-#imagename = "NG5_5"
-imagename = "NG11_11"
+imagename = "NG5_5"
+#imagename = "NG11_11"
 #imagename = "NG14_14"
 
 extension = ".jpg"
@@ -77,4 +77,18 @@ for row in df.itertuples():
   # annotate(draw, row.X1, row.Y1, row.F1, "red", size=20)
 
 cv2.imwrite('RGB_Annotated.jpg', annotated)
+# %%
+annotated = color.copy()
+for row in df.itertuples():
+  topleft = np.array([row.X1, row.Y1])
+  topleft = np.floor_divide(topleft, 200) * 200
+  topleft = topleft -200
+  bottomright = topleft + 600
+  drawcolor = random.sample(range(1, 256), 3) 
+  cv2.rectangle(annotated, topleft, bottomright, drawcolor,5)
+  cv2.circle(annotated,(row.X1,row.Y1), 10, drawcolor, 20)
+  #cv2.putText(annotated, str(row.F1), (row.X1, row.Y1), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+  # annotate(draw, row.X1, row.Y1, row.F1, "red", size=20)
+
+cv2.imwrite('RGB_Rounded.jpg', annotated)
 # %%

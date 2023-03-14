@@ -4,19 +4,20 @@ import pandas as pd
 import os
 import json
 import sys
-import pathlib
+from pathlib import Path
+from datetime import datetime
 
 
 class cutPCB:
 
     def __init__(self, ):
-
         self.current_ngt_index = 0
         self.imageIndex = 0
         self.imageOnDisplay = None
         self.output_path = os.path.join(os.path.dirname(sys.argv[0]), "parts")
         self.categories = ["FalschPositiv","Typ1", "Typ2", "Typ3", "Typ4", "Typ5", "Typ6", "Typ7", "Typ8", "Typ9", "Typ10"]
-
+        self.coords = {}
+        self.highlightErrors = False
 
         #Load Categories from config.json
         configpath= os.path.join(os.path.dirname(sys.argv[0]), "config.json")
@@ -38,7 +39,7 @@ class cutPCB:
             os.makedirs(os.path.join(self.output_path, category), exist_ok=True)
 
         #Recursivly find all ngt files in the current directory
-        input_path = pathlib.Path(sys.argv[0]).parent
+        input_path = Path(sys.argv[0]).parent
         self.ngt_list = list(input_path.rglob("*.ngt"))
         if(len(self.ngt_list) == 0):
             print("No ngt files found. Please place ngt files in the same directory as this script.")
@@ -68,8 +69,8 @@ class cutPCB:
         if self.current_ngt_index >= len(self.ngt_list):
             return np.array([]), pd.DataFrame(), "None"
 
-        imagename = pathlib.Path(self.ngt_list[self.current_ngt_index]).stem
-        image_dir = pathlib.Path(pathlib.Path(self.ngt_list[self.current_ngt_index]).parent.joinpath("..","checkimg")).resolve()
+        imagename = Path(self.ngt_list[self.current_ngt_index]).stem
+        image_dir = Path(Path(self.ngt_list[self.current_ngt_index]).parent.joinpath("..","checkimg")).resolve()
 
         R = cv2.imread(str(image_dir.joinpath(f"R_{imagename}.jpg")),cv2.IMREAD_GRAYSCALE)
         G = cv2.imread(str(image_dir.joinpath(f"G_{imagename}.jpg")),cv2.IMREAD_GRAYSCALE)
@@ -81,53 +82,95 @@ class cutPCB:
         col_names = ["index", "X1", "Y1", "Klasse", "Flaeche", "X2", "X3", "Y2", "Y3", "F1", "F2"]
         df=pd.read_csv(self.ngt_list[self.current_ngt_index], sep=',',index_col=0, header=None, names=col_names, skiprows=2)
         print(f"Loaded {imagename} ({self.current_ngt_index+1}/{len(self.ngt_list)})")
-
         self.current_ngt_index += 1
+
         return color, df, imagename
+    
 
     def getNextImage(self, catIndex = -1):            
 
+        if catIndex >= 0 and self.imageIndex <= len(self.df.index):
+            filename = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}___{self.imagename}___{self.imageIndex}-{str(catIndex)}"
+            path = os.path.join(self.output_path,self.categories[catIndex],filename)
+            cv2.imwrite(path+".jpg", self.imageOnDisplay, [cv2.IMWRITE_JPEG_QUALITY, 100])
+            #write error data to json
+            with open(path+".json", "w") as outfile:
+                json.dump(self.coords, outfile)
 
-        if self.imageIndex >= len(self.df.index - 1):
+        if self.imageIndex >= len(self.df.index):
             self.imageIndex = 0
             self.color, self.df, self.imagename = self.load_data()
             if self.color.size == 0:
                 cv2.displayStatusBar('Display', "Keine weiteren Dateien mehr vorhanden. Bitte mit ESC beenden.")
+                self.imageIndex = np.inf
                 return
-            
-        cv2.displayStatusBar('Display', f"Aktuelle Datei: {self.imagename} - {self.imageIndex}/{len(self.df.index)-1} Gesamt: {self.current_ngt_index}/{len(self.ngt_list)}")
-        
-        if catIndex >= 0:
-            path = os.path.join(self.output_path,self.categories[catIndex],f"{self.imagename}_{self.imageIndex}_{str(catIndex)}.jpg")
-            cv2.imwrite(path, self.imageOnDisplay, [cv2.IMWRITE_JPEG_QUALITY, 100])
     
         row = self.df.iloc[self.imageIndex]
-        topleft = np.array([row['X1'], row['Y1']])
-        topleft = np.floor_divide(topleft, 200) * 200
+        errorCoords = np.array([row['X1'], row['Y1']])
+        topleft = np.floor_divide(errorCoords, 200) * 200
         topleft = topleft -200
         bottomright = topleft + 600
 
         self.imageOnDisplay = self.imcrop(self.color, (topleft[0], topleft[1], bottomright[0], bottomright[1]))
-        output = self.imageOnDisplay.copy()
-        cv2.rectangle(output, (row.X2-topleft[0], row.Y2-topleft[1]), (row.X3-topleft[0], row.Y3-topleft[1]), (255, 0, 255),1)
-        cv2.putText(output, str(row.F1), (row.X1+10-topleft[0], row.Y1+10-topleft[1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+
+        self.coords["errorcoords"] = [int(row.X1-topleft[0]), int(row.Y1-topleft[1])]
+        self.coords["topleft"] = [int(row.X2-topleft[0]), int(row.Y2-topleft[1])]
+        self.coords["bottomright"] = [int(row.X3-topleft[0]), int(row.Y3-topleft[1])]
+        self.coords["errortype"] = str(row.F1)
+
+        if self.highlightErrors:
+            output = self.highlightCurrentImage()
+        else:
+            output = self.imageOnDisplay
+
         self.imageIndex += 1
+        cv2.displayStatusBar('Display', f"Aktuelle Datei: {self.imagename} - {self.imageIndex}/{len(self.df.index)} Gesamt: {self.current_ngt_index}/{len(self.ngt_list)}")
 
+        return output 
+    
+    def highlightCurrentImage(self):
+        output = self.imageOnDisplay.copy()
+        cv2.rectangle(output, self.coords["topleft"], self.coords["bottomright"], (255, 0, 255),1)
+        cv2.putText(output, self.coords["errortype"], (self.coords["errorcoords"][0]+10, self.coords["errorcoords"][1]+10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
         return output
-
+    
 
 cv2.namedWindow("Display", cv2.WINDOW_AUTOSIZE)
-
 cPCB = cutPCB()
 
 def button_callback(*args):
-
     nextImage = cPCB.getNextImage(args[1])
     if nextImage is not None:
+        cv2.setTrackbarPos("NGT Datei Nummer", '', cPCB.current_ngt_index)
         cv2.imshow('Display', nextImage)
+
+
+def button_load_callback(*args):
+    cPCB.current_ngt_index = cv2.getTrackbarPos("NGT Datei Nummer", '') - 1
+    cPCB.color, cPCB.df, cPCB.imagename = cPCB.load_data()
+    cPCB.imageIndex = 0
+    cv2.imshow('Display', cPCB.getNextImage())
+
+def button_highlight_callback(state, *args):   
+    cPCB.highlightErrors = state
+    if state:
+        cv2.imshow('Display', cPCB.highlightCurrentImage())
+    else:
+        cv2.imshow('Display', cPCB.imageOnDisplay)
+
+def trackbar_callback(*args):
+    pass
+
+
+cv2.createButton("Fehler markieren",button_highlight_callback,0,cv2.QT_CHECKBOX,0)
+cv2.createButton("NGT Datei von Slider laden",button_load_callback,0,cv2.QT_PUSH_BUTTON,1)
+cv2.createTrackbar("NGT Datei Nummer", '', 1, len(cPCB.ngt_list), trackbar_callback)
+cv2.setTrackbarMin("NGT Datei Nummer", '', 1)
 
 for index, category in enumerate(cPCB.categories):
     cv2.createButton(category,button_callback,index,cv2.QT_PUSH_BUTTON,1)
+
+
 
 
 cv2.imshow('Display', cPCB.getNextImage())

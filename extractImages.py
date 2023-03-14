@@ -5,6 +5,7 @@ import random
 import pandas as pd
 import os
 
+
 def imcrop(img, bbox):
    x1, y1, x2, y2 = bbox
    if x1 < 0 or y1 < 0 or x2 > img.shape[1] or y2 > img.shape[0]:

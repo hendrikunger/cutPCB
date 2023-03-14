@@ -25,14 +25,16 @@ class cutPCB:
         if os.path.exists(configpath):
             with open(configpath, 'r') as f:
                 try:
-                    self.categories = json.load(f)
+                    file = json.load(f)
+                    self.categories = file["categories"]
                 except:
                     print("Error loading config.json. Please check if it is valid JSON.")
 
         else:
             print("config.json not found. Using default categories.")
             with open(configpath, 'w') as f:
-                json.dump(self.categories, f)
+                out = {"categories": self.categories, "state": None}
+                json.dump(out, f)
 
         #Create Output Folders
         for category in self.categories:

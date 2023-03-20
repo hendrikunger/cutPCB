@@ -54,6 +54,7 @@ class cutPCB:
             self.imageIndex = self.state["imageIndex"]
             print(f"Resuming from last session., Current NGT index: {self.current_ngt_index}, Image: {self.imageIndex}")
         else:
+            print("No saved Session or missmatching NGT file count. Starting new session.")
             self.current_ngt_index = 0
 
         self.color, self.df, self.imagename = self.load_data()
@@ -133,7 +134,7 @@ class cutPCB:
             output = self.imageOnDisplay
 
         with open(self.configpath, 'w') as f:
-                out = {"categories": self.categories, "state": {"path":str(self.input_path), "count":len(self.ngt_list), "current_ngt_index": self.current_ngt_index, "imageIndex":self.imageIndex}}
+                out = {"categories": self.categories, "state": {"path":str(self.input_path), "count":len(self.ngt_list), "current_ngt_index": self.current_ngt_index-1, "imageIndex":self.imageIndex}}
                 json.dump(out, f)
 
         self.imageIndex += 1

@@ -17,23 +17,25 @@ class cutPCB:
         self.output_path = os.path.join(os.path.dirname(sys.argv[0]), "parts")
         self.categories = ["FalschPositiv","Typ1", "Typ2", "Typ3", "Typ4", "Typ5", "Typ6", "Typ7", "Typ8", "Typ9", "Typ10"]
         self.coords = {}
+        self.state = {"path":"", "count":0, "current_ngt_index":0, "imageIndex":0}
         self.highlightErrors = False
 
         #Load Categories from config.json
-        configpath= os.path.join(os.path.dirname(sys.argv[0]), "config.json")
-        print(configpath)
-        if os.path.exists(configpath):
-            with open(configpath, 'r') as f:
+        self.configpath= os.path.join(os.path.dirname(sys.argv[0]), "config.json")
+        print(self.configpath)
+        if os.path.exists(self.configpath):
+            with open(self.configpath, 'r') as f:
                 try:
                     file = json.load(f)
                     self.categories = file["categories"]
+                    self.state = file["state"]
                 except:
                     print("Error loading config.json. Please check if it is valid JSON.")
 
         else:
             print("config.json not found. Using default categories.")
-            with open(configpath, 'w') as f:
-                out = {"categories": self.categories, "state": None}
+            with open(self.configpath, 'w') as f:
+                out = {"categories": self.categories, "state": {"path":"", "count":0, "current_ngt_index":0, "imageIndex":0}}
                 json.dump(out, f)
 
         #Create Output Folders
@@ -41,13 +43,18 @@ class cutPCB:
             os.makedirs(os.path.join(self.output_path, category), exist_ok=True)
 
         #Recursivly find all ngt files in the current directory
-        input_path = Path(sys.argv[0]).parent
-        self.ngt_list = list(input_path.rglob("*.ngt"))
+        self.input_path = Path(sys.argv[0]).parent
+        self.ngt_list = list(self.input_path.rglob("*.ngt"))
         if(len(self.ngt_list) == 0):
             print("No ngt files found. Please place ngt files in the same directory as this script.")
             sys.exit()
 
-        current_ngt_index = 0
+        if self.state["path"] == str(self.input_path) and self.state["count"] ==  len(self.ngt_list):
+            self.current_ngt_index = self.state["current_ngt_index"]
+            self.imageIndex = self.state["imageIndex"]
+            print(f"Resuming from last session., Current NGT index: {self.current_ngt_index}, Image: {self.imageIndex}")
+        else:
+            self.current_ngt_index = 0
 
         self.color, self.df, self.imagename = self.load_data()
 
@@ -124,6 +131,10 @@ class cutPCB:
             output = self.highlightCurrentImage()
         else:
             output = self.imageOnDisplay
+
+        with open(self.configpath, 'w') as f:
+                out = {"categories": self.categories, "state": {"path":str(self.input_path), "count":len(self.ngt_list), "current_ngt_index": self.current_ngt_index, "imageIndex":self.imageIndex}}
+                json.dump(out, f)
 
         self.imageIndex += 1
         cv2.displayStatusBar('Display', f"Aktuelle Datei: {self.imagename} - {self.imageIndex}/{len(self.df.index)} Gesamt: {self.current_ngt_index}/{len(self.ngt_list)}")

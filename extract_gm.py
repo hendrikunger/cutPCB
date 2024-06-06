@@ -34,7 +34,7 @@ img_path=os.path.join(base_path,"614581","3031341_1_A_1","checkimg")
 ngt_path=os.path.join(base_path,"614581","3031341_1_A_1","ngpointdata")
 col_names = ["index", "X1", "Y1", "Klasse", "Flaeche", "X2", "X3", "Y2", "Y3", "F1", "F2"]
 
-ANNOTATE=False
+ANNOTATE=True
 
 #%%
 
@@ -56,7 +56,7 @@ ngt_list = [x.stem for x in Path(ngt_path).rglob("*.ngt")]
 
 #%%
 
-for file in ngt_list[1:2]:
+for file in ngt_list[2:3]:
     print(file)
     df=pd.read_csv(os.path.join(ngt_path, file+".ngt"), sep=',',index_col=0, header=None, names=col_names, skiprows=2)
 
@@ -73,15 +73,11 @@ for file in ngt_list[1:2]:
         topleft = np.floor_divide(topleft, 200) * 200
         topleft = topleft -200
         bottomright = topleft + 600
-        drawcolor = random.sample(range(1, 256), 3) 
-        #cv2.rectangle(annotated, topleft, bottomright, drawcolor,5)
-        if ANNOTATE:
-            cv2.rectangle(annotated, (row.X2, row.Y2), (row.X3, row.Y3), (255, 0, 255),1)
-            cv2.putText(annotated, str(row.F1), (row.X1+10, row.Y1+10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-            #cv2.circle(annotated,(row.X1,row.Y1), 10, (0,0,255), 20)
 
 
-        error_img = imcrop(annotated, (topleft[0], topleft[1], bottomright[0], bottomright[1]))
+
+        error_img = imcrop(color, (topleft[0], topleft[1], bottomright[0], bottomright[1]))
+        error_img = cv2.GaussianBlur(error_img, (3,3), 0)
         
         margin = 0
         gm_img = imcrop(master_1, (topleft[0] - margin, topleft[1] - margin, bottomright[0] + margin, bottomright[1] + margin))
@@ -93,15 +89,27 @@ for file in ngt_list[1:2]:
         (score, diff) = compare_ssim(error_img_grey, gm_img_grey, full=True)
         diff = (diff * 255).astype("uint8")
         print("SSIM: {}".format(score))
-        blur = cv2.GaussianBlur(diff, (5,5), 0)
+        blur = cv2.GaussianBlur(diff, (3,3), 0)
         thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+        #thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 31, 23)
 
-        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}.jpg"), error_img, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
+        absdiff = cv2.absdiff(gm_img_grey, error_img_grey)
+        absdiff = cv2.GaussianBlur(absdiff, (3,3), 0)
+        absdiffthresh = cv2.threshold(absdiff, 0, 255, cv2.THRESH_OTSU)[1]
+
+        
         cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_m.jpg"), gm_img, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
-        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_x.jpg"), thresh, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
-        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_y.jpg"), cv2.absdiff(gm_img, error_img), [cv2.IMWRITE_JPEG_QUALITY, 95]) 
-
-
+        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_y1.jpg"), thresh, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
+        #cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_x.jpg"), absdiff, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
+        #cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_z.jpg"), absdiffthresh, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
+        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}_z1.jpg"), cv2.bitwise_and(error_img, error_img, mask=thresh), [cv2.IMWRITE_JPEG_QUALITY, 95])
+        annotated = color.copy()
+        if ANNOTATE:
+            cv2.rectangle(annotated, (row.X2, row.Y2), (row.X3, row.Y3), (255, 0, 255),1)
+            cv2.putText(annotated, str(row.F1), (row.X1+10, row.Y1+10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+            #cv2.circle(annotated,(row.X1,row.Y1), 10, (0,0,255), 20)
+        error_img=imcrop(annotated, (topleft[0], topleft[1], bottomright[0], bottomright[1]))
+        cv2.imwrite(os.path.join(rootdir,"result",f"merged_{file}_{row.Index}.jpg"), error_img, [cv2.IMWRITE_JPEG_QUALITY, 95]) 
 
 
 

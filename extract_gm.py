@@ -25,6 +25,37 @@ def pad_img_to_fit_bbox(img, x1, x2, y1, y2):
 
 #%%
 rootdir = os.path.dirname(__file__)
+gmdir= os.path.join(rootdir,"gm")
+
+
+for f in os.listdir(gmdir):
+    if os.path.isdir(f):
+        print(f)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 base_path = os.path.join(rootdir,"614581_helles_Entek_neu")
 
 

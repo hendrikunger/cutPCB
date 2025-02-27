@@ -39,7 +39,7 @@ B = cv2.imread("B"+"_"+imagename+extension,cv2.IMREAD_GRAYSCALE)
 color = cv2.merge([B, G, R])
 
 # %%
-col_names = ["index", "X1", "Y1", "Klasse", "Flaeche", "X2", "X3", "Y2", "Y3", "F1", "F2"]
+col_names = ["index", "X1", "Y1", "Lage im PCB", "Flaeche", "X2", "X3", "Y2", "Y3", "F1", "F2"]
 df=pd.read_csv(imagename+".ngt", sep=',',index_col=0, header=None, names=col_names, skiprows=2)
 
 # %%

@@ -19,6 +19,7 @@ def pad_img_to_fit_bbox(img, x1, x2, y1, y2):
    x2 += -min(0, x1)
    x1 += -min(0, x1)
    return img, x1, x2, y1, y2
+
 path = os.path.join(os.path.dirname(__file__), "parts")
 os.makedirs(path, exist_ok=True) 
 
@@ -63,7 +64,7 @@ for row in df.itertuples():
    #print(os.path.join(path,f"{row.Index}.jpg"))
 
 
-#cv2.imwrite(path + '/Full.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 100])
+
 
 
 
